@@ -1,5 +1,46 @@
 /// -*- tab-width: 4; Mode: C++; c-basic-offset: 4; indent-tabs-mode: nil -*-
 #include "Copter.h"
+#include <pthread.h>
+#include <iostream>
+#include <cstdlib>
+
+#define NUM_SONARS     4
+
+struct thread_data{
+   int thread_id;
+   int address;
+};
+
+Vector3d xl(0,0,0);
+
+int sonar_addresses[4] = { 0x3a, 0x70, 0x3c, 0x37};
+
+struct thread_data td[NUM_SONARS];
+
+void *sonars_callback(void *threadarg)
+{
+    struct thread_data *my_data;
+
+    my_data = (struct thread_data *) threadarg;
+
+    std::cout << "Sonar Thread ID : " << my_data->thread_id << " Sonar address : " << my_data->address << std::endl;
+
+   pthread_exit(NULL);
+}
+
+void *pose_callback(void *threadid)
+{
+   long tid;
+   tid = (long)threadid;
+   std::cout << "Pose Thread ID, " << tid << std::endl;
+
+//   while(1) {
+//
+//   }
+
+
+   pthread_exit(NULL);
+}
 
 
 /*
@@ -26,6 +67,37 @@ bool Copter::althold_init(bool ignore_checks)
 
     // stop takeoff if running
     takeoff_stop();
+
+    //my code - begin
+
+    std::cout << "criando threads....." << std::endl;
+
+    pthread_t thread_sonars[NUM_SONARS], thread_pose;
+    int ts, tp = 0, cont;
+
+    std::cout <<"creating thread Pose " << std::endl;
+    tp = pthread_create(&thread_pose, NULL, pose_callback, (void *)100);
+
+    if (tp) {
+        std::cout << "Error:unable to create pose thread" << std::endl;
+    }
+
+    for( cont=0; cont < NUM_SONARS; cont++ ){
+        td[cont].thread_id = cont;
+        td[cont].address = sonar_addresses[cont];
+    }
+
+    for( cont=0; cont < NUM_SONARS; cont++ ){
+      std::cout <<" creating thread SONAR " << cont << std::endl;
+      ts = pthread_create(&thread_sonars[cont], NULL, sonars_callback, (void *)&td[cont]);
+      if (ts){
+          std::cout << "Error:unable to create sonar thread," << ts << std::endl;
+      }
+    }
+
+
+
+    //my code -- end
 
     return true;
 }
