@@ -3,17 +3,20 @@
 #include <pthread.h>
 #include <iostream>
 #include <cstdlib>
+#include "collision_verification.h"
 
 #define NUM_SONARS     4
 
 struct thread_data{
-   int thread_id;
+   Vector3d s_rel_pose;
+   Matrix3d s_rot_matrix;
    int address;
 };
 
-Vector3d xl(0,0,0);
+CollisionVerification cv;
 
-int sonar_addresses[4] = { 0x3a, 0x70, 0x3c, 0x37};
+Vector3d position(0,0,0);
+Vector3d attitude(0,0,0);
 
 struct thread_data td[NUM_SONARS];
 
@@ -23,7 +26,11 @@ void *sonars_callback(void *threadarg)
 
     my_data = (struct thread_data *) threadarg;
 
-    std::cout << "Sonar Thread ID : " << my_data->thread_id << " Sonar address : " << my_data->address << std::endl;
+  //  float range = read from sonar in 10Hz;
+
+    float range = 10.0;
+
+    cv.sonar_callback(range, my_data->s_rel_pose, my_data->s_rot_matrix, position, attitude, 0);
 
    pthread_exit(NULL);
 }
@@ -82,10 +89,18 @@ bool Copter::althold_init(bool ignore_checks)
         std::cout << "Error:unable to create pose thread" << std::endl;
     }
 
-    for( cont=0; cont < NUM_SONARS; cont++ ){
-        td[cont].thread_id = cont;
-        td[cont].address = sonar_addresses[cont];
-    }
+    td[0].address = 0x3a;
+    td[0].s_rel_pose = Vector3d(0.1, -0.1, 0.12);
+    td[0].s_rot_matrix.from_euler(0.0, 0.0, 0.0);
+    td[1].address = 0x70;
+    td[1].s_rel_pose = Vector3d(0.1, -0.2, 0.12);
+    td[1].s_rot_matrix.from_euler(0.0, 0.0, 0.0);
+    td[2].address = 0x3c;
+    td[2].s_rel_pose = Vector3d(0.1, 0.1, 0.12);
+    td[2].s_rot_matrix.from_euler(0.0, 0.0, 0.0);
+    td[3].address = 0x37;
+    td[3].s_rel_pose = Vector3d(0.1, 0.2, 0.12);
+    td[3].s_rot_matrix.from_euler(0.0, 0.0, 0.0);
 
     for( cont=0; cont < NUM_SONARS; cont++ ){
       std::cout <<" creating thread SONAR " << cont << std::endl;
@@ -126,6 +141,17 @@ void Copter::althold_run()
     // get pilot desired climb rate
     float target_climb_rate = get_pilot_desired_climb_rate(channel_throttle->control_in);
     target_climb_rate = constrain_float(target_climb_rate, -g.pilot_velocity_z_max, g.pilot_velocity_z_max);
+
+    uint32_t now_milli = AP_HAL::millis();
+
+    double timestamp = now_milli/1000;
+
+    attitude = Vector3d(ahrs.roll, ahrs.pitch, ahrs.yaw);
+
+    Vector3d velocity (0.0, 0.0, 0.0);
+
+    cv.nav_callback(timestamp, attitude, velocity , position, target_roll, target_pitch, target_yaw_rate, target_climb_rate);
+
 
 #if FRAME_CONFIG == HELI_FRAME
     // helicopters are held on the ground until rotor speed runup has finished
