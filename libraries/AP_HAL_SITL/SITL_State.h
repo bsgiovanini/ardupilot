@@ -22,6 +22,7 @@
 #include <AP_Compass/Compass.h>
 #include <AP_OpticalFlow/AP_OpticalFlow.h>
 #include <AP_Terrain/AP_Terrain.h>
+#include <AP_RangeFinder/AP_RangeFinder.h>
 #include <SITL/SITL.h>
 #include <SITL/SIM_Gimbal.h>
 #include <SITL/SIM_ADSB.h>
@@ -84,6 +85,7 @@ private:
     void _update_barometer(float height);
     void _update_compass(float rollDeg, float pitchDeg, float yawDeg);
     void _update_flow(void);
+    void _update_range_finder(float altitude);    
 
     struct gps_data {
         double latitude;
@@ -149,6 +151,7 @@ private:
     Compass *_compass;
     OpticalFlow *_optical_flow;
     AP_Terrain *_terrain;
+    RangeFinder *_range_finder;    
 
     SocketAPM _sitl_rc_in{true};
     SITL::SITL *_sitl;

@@ -253,6 +253,11 @@ case $FRAME in
         MODEL="X"
         DEFAULTS_PATH="$autotest/copter_params.parm"
 	;;
+    arducopter_sitl_ros)
+	BUILD_TARGET="sitl"
+        EXTRA_SIM="$EXTRA_SIM --frame=arducopter_sitl_ros"
+        MODEL="$FRAME"
+	;;
     octa*)
 	BUILD_TARGET="sitl-octa"
         MODEL="$FRAME"
@@ -467,11 +472,17 @@ if [ $DELAY_START != 0 ]; then
   sleep $DELAY_START
 fi
 
+case $FRAME in
+    arducopter_sitl_ros)
+	sleep 999999
+esac
+
 if [ -f /usr/bin/cygstart ]; then
     cygstart -w "/cygdrive/c/Program Files (x86)/MAVProxy/mavproxy.exe" $options --cmd="$extra_cmd" $*
 else
     mavproxy.py $options --cmd="$extra_cmd" $*
 fi
+
 if [ $START_HIL == 0 ]; then
 kill_tasks
 fi
