@@ -4,6 +4,8 @@
 #include <iostream>
 #include <cstdlib>
 #include "collision_verification.h"
+#include "MPU9250.h"
+#include "LSM9DS1.h"
 
 #define NUM_SONARS     4
 
@@ -37,9 +39,43 @@ void *sonars_callback(void *threadarg)
 
 void *pose_callback(void *threadid)
 {
+
+   InertialSensor *mpu, *lsm;
+   mpu = new MPU9250();
+   lsm = new LSM9DS1();
+
+   if (!mpu->probe() || !lsm->probe()) {
+	printf("Sensors not enabled\n");
+        pthread_exit(NULL);
+   }
+
+   mpu->initialize();
+   lsm->initialize();
+
    long tid;
    tid = (long)threadid;
    std::cout << "Pose Thread ID, " << tid << std::endl;
+
+   float axm, axl, aym, ayl, azm, azl;
+   float gxm, gxl, gym, gyl, gzm, gzl;
+   float mxm, mxl, mym, myl, mzm, mzl;
+//-------------------------------------------------------------------------
+
+    while(1) {
+        mpu->update();
+        lsm->update();
+        mpu->read_accelerometer(&axm, &aym, &azm);
+        lsm->read_accelerometer(&axl, &ayl, &azl);
+        mpu->read_gyroscope(&gxm, &gym, &gzm);
+        lsm->read_gyroscope(&gxl, &gyl, &gzl);
+        mpu->read_magnetometer(&mxm, &mym, &mzm);
+        lsm->read_magnetometer(&mxl, &myl, &mzl);
+        printf("Acc: %+7.3f %+7.3f %+7.3f %+7.3f %+7.3f %+7.3f\n ", axm, aym, azm, axl, ayl, azl);
+        printf("Gyr: %+8.3f %+8.3f %+8.3f %+8.3f %+8.3f %+8.3f\n ", gxm, gym, gzm, gxl, gyl, gzl);
+        printf("Mag: %+7.3f %+7.3f %+7.3f %+7.3f %+7.3f %+7.3f\n", mxm, mym, mzm, mxl, myl, mzl);
+
+       usleep(500000);
+    }	
 
 //   while(1) {
 //
