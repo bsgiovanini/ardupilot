@@ -6,13 +6,8 @@
 #include "collision_verification.h"
 #include "MPU9250.h"
 #include "LSM9DS1.h"
-#include <deque>
-#include <sys/time.h>
-#include "Acceleration.h"
 
-#define G_SI          9.80665
 #define NUM_SONARS     4
-
 
 struct thread_data{
    Vector3d s_rel_pose;
@@ -46,8 +41,6 @@ void *pose_callback(void *threadid)
 {
 
    InertialSensor *mpu, *lsm;
-
-   Project::Acceleration acc;
    mpu = new MPU9250();
    lsm = new LSM9DS1();
 
@@ -64,60 +57,15 @@ void *pose_callback(void *threadid)
    std::cout << "Pose Thread ID, " << tid << std::endl;
 
    float axm, axl, aym, ayl, azm, azl;
-   float axm_offset = -0.0137;
-   float aym_offset = 0.0127;
-   float azm_offset = -0.0630;
-   float axl_offset = 0.0046;
-   float ayl_offset = 0.0251;
-   float azl_offset = -0.0043;
-   float min_acc = 0.05;
-
-   Matrix3d rotmat;
 //-------------------------------------------------------------------------
 
     while(1) {
         mpu->update();
         lsm->update();
         mpu->read_accelerometer(&axm, &aym, &azm);
-        lsm->read_accelerometer(&axl, &ayl, &azl);
-        axm=axm/G_SI - axm_offset;
-        aym=aym/G_SI - aym_offset;
-        azm=azm/G_SI - azm_offset;
-        axl=axl/G_SI - axl_offset;
-        ayl=ayl/G_SI - ayl_offset;
-        azl=azl/G_SI - azl_offset;
+        lsm->read_accelerometer
 
-	rotmat.from_euler(attitude.x, attitude.y, attitude.z);
-
-	Vector3d g_rot = rotmat.mul_transpose(Vector3d(0, 0, 1)); 
-
-	acc.updateAcceleration(-aym, -axm, azm, -ayl, -axl, azl);
-       
-	unsigned long long time_acc;
-	Vector3d accel = acc.getAcceleration(time_acc);
-
-	printf("Accea  %+7.3f %+7.3f %+7.3f \n", accel.x, accel.y, accel.z);
-
-	accel -= g_rot;
-
-        if (abs(accel.x) <= min_acc) accel.x = 0.0;
-  	if (abs(accel.y) <= min_acc) accel.y = 0.0;
-	if (abs(accel.z) <= min_acc) accel.z = 0.0;
-
-        //printf("attit  %+7.3f %+7.3f %+7.3f \n", attitude.x, attitude.y, attitude.z);
-
-	printf("g_inv  %+7.3f %+7.3f %+7.3f \n", g_rot.x, g_rot.y, g_rot.z);
-
-	printf("Accel  %+7.3f %+7.3f %+7.3f \n", accel.x, accel.y, accel.z);
-
-        //definir aceleracao 
-
-
-      //  printf("Acc: %+7.3f %+7.3f %+7.3f %+7.3f %+7.3f %+7.3f\n ", axm, aym, azm, axl, ayl, azl);
-      //  printf("Gyr: %+8.3f %+8.3f %+8.3f %+8.3f %+8.3f %+8.3f\n ", gxm, gym, gzm, gxl, gyl, gzl);
-      //  printf("Mag: %+7.3f %+7.3f %+7.3f %+7.3f %+7.3f %+7.3f\n", mxm, mym, mzm, mxl, myl, mzl);
-
-        //printf(" Attitude roll: %f, pitch: %f, yaw: %f \n", attitude.x, attitude.y, attitude.z);
+        printf(" Attitude roll: %f, pitch: %f, yaw: %f \n", attitude.x, attitude.y, attitude.z);
         usleep(500000);
     }	
 

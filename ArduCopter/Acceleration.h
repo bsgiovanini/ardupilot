@@ -1,0 +1,63 @@
+#define ACC_BUFFER_SIZE 1
+#define ACC_DIFF_1_AND_2 1.0
+#define ACC_MAX 4.0
+#define ACC_DELTA_T 100000 //in microssec. deve ser <= ao intervalo de amostras da IMU
+#define TIME(a,b) ((a*1000000ull) + b)
+
+
+#include <math.h>
+
+#include <sys/time.h>
+
+#include <signal.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <limits>
+#include <unistd.h>
+#include <vector>
+#include <AP_Math/AP_Math.h>
+
+#include <deque>
+
+using namespace std;
+
+
+
+namespace Project {
+
+    struct sample {
+        Vector3d data;
+        unsigned long long time_us;
+    };
+
+    class Acceleration {
+
+        public:
+
+            deque<sample> buffer_acc;
+
+            void getRawAcc(double ax1, double ay1, double az1, double ax2, double ay2, double az2, Vector3d &acc1, Vector3d &acc2, unsigned long long &time_us);
+
+            bool acceptDiffAccs(Vector3d acc1, Vector3d acc2);
+
+            bool acceptMaxAcc(Vector3d acc);
+
+            Vector3d doInterpolation(Project::sample lastS, Project::sample newS);
+
+            void updateAcceleration(double ax1, double ay1, double az1, double ax2, double ay2, double az2);
+
+            Vector3d getAcceleration(unsigned long long &timestamp);
+
+            Vector3d getPrevAcceleration(unsigned long long &timestamp);
+
+
+    };
+
+    class Velocity {
+
+        public:
+
+    };
+
+
+}
