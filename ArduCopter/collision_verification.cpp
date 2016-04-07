@@ -125,7 +125,7 @@ void CollisionVerification::sonar_callback(float range, Vector3d s_rel_pose, Mat
 
 }
 
-void CollisionVerification::nav_callback(double timestamp, Vector3d attitude, Vector3d velocity, Vector3d position, double desired_roll_cmd, double desired_pitch_cmd, double desired_yaw_cmd, double desired_climb_cmd) {
+void CollisionVerification::nav_callback(double timestamp, Vector3d attitude, Vector3d velocity, Vector3d position, double &desired_roll_cmd, double &desired_pitch_cmd, double &desired_yaw_cmd, double &desired_climb_cmd) {
 
     Vector3d future_position;
 

@@ -92,7 +92,7 @@ class CollisionVerification
             yaw_obj(0){}
         void sonar_callback(float range, Vector3d s_rel_pose, Matrix3d s_rel_rot_pose, Vector3d v_pose, Vector3d attitude, int debug);
         //timestamp in seconds
-        void nav_callback(double timestamp, Vector3d attitude, Vector3d velocity, Vector3d position, double desired_roll_cmd, double desired_pitch_cmd, double desired_yaw_cmd, double desired_climb_cmd);
+        void nav_callback(double timestamp, Vector3d attitude, Vector3d velocity, Vector3d position, double &desired_roll_cmd, double &desired_pitch_cmd, double &desired_yaw_cmd, double &desired_climb_cmd);
     private:
         octomap::OcTree tree;
         int control_mode; // init

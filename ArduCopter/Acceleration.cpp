@@ -12,34 +12,40 @@ void Project::Acceleration::getRawAcc(double ax1, double ay1, double az1, double
 
 bool Project::Acceleration::acceptDiffAccs(Vector3d acc1, Vector3d acc2) {
 
-    Vector3d diff(abs(acc1.x - acc2.x), abs(acc1.y - acc2.y), abs(acc1.z - acc2.z));
+    Vector3d diff(fabs(acc1.x - acc2.x), fabs(acc1.y - acc2.y), fabs(acc1.z - acc2.z));
 
     return (diff.x <= ACC_DIFF_1_AND_2 && diff.y <= ACC_DIFF_1_AND_2 && diff.z  <= ACC_DIFF_1_AND_2);
 }
 
 bool Project::Acceleration::acceptMaxAcc(Vector3d acc) {
 
-    return (abs(acc.x) <= ACC_MAX && abs(acc.y) <= ACC_MAX && abs(acc.z) <= ACC_MAX);
+    return (fabs(acc.x) <= ACC_MAX && fabs(acc.y) <= ACC_MAX && fabs(acc.z) <= ACC_MAX);
 }
 
 Vector3d Project::Acceleration::doInterpolation(sample lastS, sample newS) {
 
 
-    Vector3d x =  (((newS.data - lastS.data) * ACC_DELTA_T )/ (newS.time_us - lastS.time_us)) + lastS.data;
+    Vector3d x =  (((newS.data - lastS.data) * deltaT )/ (newS.time_us - lastS.time_us)) + lastS.data;
 
     return x;
 
 }
 
 
-void Project::Acceleration::updateAcceleration(double ax1, double ay1, double az1, double ax2, double ay2, double az2) {
+void Project::Acceleration::updateAcceleration(double ax1, double ay1, double az1, double ax2, double ay2, double az2, Vector3d attitude) {
 
     //calibrate accelerometers
 
     Vector3d acc1;
+
     Vector3d acc2;
     unsigned long long time;
     getRawAcc(ax1, ay1, az1, ax2, ay2, az2, acc1, acc2, time);
+
+
+//    printf("acc1  %+7.3f %+7.3f %+7.3f \n", acc1.x, acc1.y, acc1.z);
+
+//    printf("acc2  %+7.3f %+7.3f %+7.3f \n", acc2.x, acc2.y, acc2.z);
 
     if (!acceptDiffAccs(acc1, acc2)) { //eliminate if the difference between accs is big
 
@@ -47,13 +53,20 @@ void Project::Acceleration::updateAcceleration(double ax1, double ay1, double az
         return;
     }
 
+
+
     Vector3d acc = (acc1 + acc2) * 0.5;
+
+//    printf("Acc1  %+7.3f %+7.3f %+7.3f \n", acc.x, acc.y, acc.z);
 
     if (!acceptMaxAcc(acc)) {
         printf("nao aceitou acc max\n");
         return;
     }
 
+    handleAcceleration(acc, attitude);
+   
+//    printf("Acc2  %+7.3f %+7.3f %+7.3f \n", acc.x, acc.y, acc.z);
 
     if (buffer_acc.empty()) { //first measurement
         sample sp;
@@ -73,7 +86,8 @@ void Project::Acceleration::updateAcceleration(double ax1, double ay1, double az
     }
     newSample.data = newSample.data/(buffer_acc.size() + 1);
 
-    unsigned long long timeSample = buffer_acc.back().time_us + ACC_DELTA_T;
+ 	
+    unsigned long long timeSample = buffer_acc.back().time_us + deltaT;
 
     if (timeSample <= time) {
 
@@ -82,7 +96,7 @@ void Project::Acceleration::updateAcceleration(double ax1, double ay1, double az
             sp.data = doInterpolation(buffer_acc.back(), newSample);
             sp.time_us = timeSample;
             buffer_acc.push_back(sp);
-            timeSample += ACC_DELTA_T;
+            timeSample += deltaT;
         }
     }
 
@@ -97,16 +111,45 @@ void Project::Acceleration::updateAcceleration(double ax1, double ay1, double az
 
     sample acc = buffer_acc.back();
     timestamp = acc.time_us;
-    return acc.data;
+    Vector3d val = acc.data;
+    if (fabs(val.x) <= MIN_ACC) val.x = 0.0;
+    if (fabs(val.y) <= MIN_ACC) val.y = 0.0;
+    if (fabs(val.z) <= MIN_ACC) val.z = 0.0;
+    val*= G_SI;	
+
+    return val;
  }
 
  Vector3d Project::Acceleration::getPrevAcceleration(unsigned long long &timestamp) {
     if (buffer_acc.size() > 1) {
-	timestamp = buffer_acc.at(buffer_acc.size()-1).time_us;
-        return buffer_acc.at(buffer_acc.size()-1).data;
+
+       	Vector3d val = buffer_acc.at(buffer_acc.size()-2).data;
+    	if (fabs(val.x) <= MIN_ACC) val.x = 0.0;
+   	if (fabs(val.y) <= MIN_ACC) val.y = 0.0;
+    	if (fabs(val.z) <= MIN_ACC) val.z = 0.0;
+	timestamp = buffer_acc.at(buffer_acc.size()-2).time_us;
+	val*= G_SI;
+        return val;
     }
     else {
 	timestamp = 0;
         return Vector3d(0,0,0);
     }
  }
+
+void Project::Acceleration::handleAcceleration(Vector3d &acc, Vector3d attitude) {
+
+   Matrix3d rotmat;
+
+   rotmat.from_euler(attitude.x, attitude.y, attitude.z);
+
+   //acc = rotmat * acc - Vector3d(0, 0, 1);
+
+   Vector3d g_rot = rotmat.mul_transpose(Vector3d(0, 0, 1.0));
+
+//   printf("grot  %+7.3f %+7.3f %+7.3f \n", g_rot.x, g_rot.y, g_rot.z);
+
+   acc -= g_rot;
+
+}
+

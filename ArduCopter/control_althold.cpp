@@ -9,9 +9,15 @@
 #include <deque>
 #include <sys/time.h>
 #include "Acceleration.h"
+#include <wiringPi.h>
+#include <wiringPiI2C.h>
+
 
 #define G_SI          9.80665
-#define NUM_SONARS     4
+#define NUM_SONARS     3
+#define USLEEP_T       1000
+#define ZERO_ACC_LIMIT 64
+#define MAX_READING 100
 
 
 struct thread_data{
@@ -24,6 +30,7 @@ CollisionVerification cv;
 
 Vector3d position(0,0,0);
 Vector3d attitude(0,0,0);
+Vector3d velocity(0,0,0);
 
 struct thread_data td[NUM_SONARS];
 
@@ -31,13 +38,36 @@ void *sonars_callback(void *threadarg)
 {
     struct thread_data *my_data;
 
+    int fd;
+
     my_data = (struct thread_data *) threadarg;
 
-  //  float range = read from sonar in 10Hz;
+    int dID = my_data->address;
 
-    float range = 10.0;
+    if((fd=wiringPiI2CSetup(dID))<0)
+	printf("error opening i2c channel %d \n", dID);
 
-    cv.sonar_callback(range, my_data->s_rel_pose, my_data->s_rot_matrix, position, attitude, 0);
+
+    while (1) {
+
+	int e = wiringPiI2CWrite(fd, 0x51);
+
+	usleep(100000);
+
+	int r = wiringPiI2CReadReg16(fd, 0xe1);
+
+	int val = (r >> 8) & 0xff | (r << 8) & 0x1;
+
+	if (val <= MAX_READING) {
+
+		float range = val/100.0;
+    		cv.sonar_callback(range, my_data->s_rel_pose, my_data->s_rot_matrix, position, attitude, 0);
+
+	} else {
+		printf("Not sending %f \n", val/100.0);
+	}
+
+   }
 
    pthread_exit(NULL);
 }
@@ -47,7 +77,7 @@ void *pose_callback(void *threadid)
 
    InertialSensor *mpu, *lsm;
 
-   Project::Acceleration acc;
+   Project::Acceleration acc(USLEEP_T);
    mpu = new MPU9250();
    lsm = new LSM9DS1();
 
@@ -70,12 +100,24 @@ void *pose_callback(void *threadid)
    float axl_offset = 0.0046;
    float ayl_offset = 0.0251;
    float azl_offset = -0.0043;
-   float min_acc = 0.05;
 
-   Matrix3d rotmat;
+   Vector3d velocity_prev(0.0, 0.0, 0.0);
+
+  // Vector3d accel_prev(0.0, 0.0, 0.0);
+
+   int count_zeros_acc = 0;
+
+//   struct timeval start_sp, end_sp;
+
+   unsigned long long dt_print_sum = 0;
+
 //-------------------------------------------------------------------------
 
     while(1) {
+
+ //       gettimeofday(&start_sp, NULL);
+ //       unsigned long long start_t_us = TIME(start_sp.tv_sec,start_sp.tv_usec);
+
         mpu->update();
         lsm->update();
         mpu->read_accelerometer(&axm, &aym, &azm);
@@ -87,43 +129,67 @@ void *pose_callback(void *threadid)
         ayl=ayl/G_SI - ayl_offset;
         azl=azl/G_SI - azl_offset;
 
-	rotmat.from_euler(attitude.x, attitude.y, attitude.z);
-
-	Vector3d g_rot = rotmat.mul_transpose(Vector3d(0, 0, 1)); 
-
-	acc.updateAcceleration(-aym, -axm, azm, -ayl, -axl, azl);
+	acc.updateAcceleration(-aym, -axm, azm, -ayl, -axl, azl, attitude);
        
 	unsigned long long time_acc;
 	Vector3d accel = acc.getAcceleration(time_acc);
 
-	printf("Accea  %+7.3f %+7.3f %+7.3f \n", accel.x, accel.y, accel.z);
+	if (accel.is_zero()) {
+		count_zeros_acc++;
+        } else {
+		count_zeros_acc = 0;
+	}
 
-	accel -= g_rot;
 
-        if (abs(accel.x) <= min_acc) accel.x = 0.0;
-  	if (abs(accel.y) <= min_acc) accel.y = 0.0;
-	if (abs(accel.z) <= min_acc) accel.z = 0.0;
+	unsigned long long time_prev;
+	Vector3d accel_prev = acc.getPrevAcceleration(time_prev);
+	
+	if (time_prev == 0llu) time_prev = time_acc;
+
+	unsigned long long dt_usec = time_acc - time_prev;
+
+	double dt = dt_usec * 0.0000001;
+
+	dt_print_sum += dt_usec;
+
+	//printf("dt   %f\n", dt);
+
+	if (count_zeros_acc >= ZERO_ACC_LIMIT) {
+		velocity = Vector3d(0.0, 0.0, 0.0);
+        } else {
+		
+        	velocity = velocity + (accel_prev + accel)*0.5*dt;
+	}
+	
+	position += (velocity_prev + velocity)*0.5*dt;
+
+	if (dt_print_sum >= 500000) {
+
+		printf("Acce  %+7.3f %+7.3f %+7.3f \n", accel.x, accel.y, accel.z);
+
+		printf("Vela  %+7.3f %+7.3f %+7.3f \n", velocity.x, velocity.y, velocity.z);
+
+		printf("Posi  %+7.3f %+7.3f %+7.3f \n", position.x, position.y, position.z);
 
         //printf("attit  %+7.3f %+7.3f %+7.3f \n", attitude.x, attitude.y, attitude.z);
 
-	printf("g_inv  %+7.3f %+7.3f %+7.3f \n", g_rot.x, g_rot.y, g_rot.z);
+	//printf("g_inv  %+7.3f %+7.3f %+7.3f \n", g_rot.x, g_rot.y, g_rot.z);
 
-	printf("Accel  %+7.3f %+7.3f %+7.3f \n", accel.x, accel.y, accel.z);
-
-        //definir aceleracao 
-
-
-      //  printf("Acc: %+7.3f %+7.3f %+7.3f %+7.3f %+7.3f %+7.3f\n ", axm, aym, azm, axl, ayl, azl);
+       // printf("Acc: %+7.3f %+7.3f %+7.3f %+7.3f %+7.3f %+7.3f\n ", axm, aym, azm, axl, ayl, azl);
       //  printf("Gyr: %+8.3f %+8.3f %+8.3f %+8.3f %+8.3f %+8.3f\n ", gxm, gym, gzm, gxl, gyl, gzl);
       //  printf("Mag: %+7.3f %+7.3f %+7.3f %+7.3f %+7.3f %+7.3f\n", mxm, mym, mzm, mxl, myl, mzl);
 
-        //printf(" Attitude roll: %f, pitch: %f, yaw: %f \n", attitude.x, attitude.y, attitude.z);
-        usleep(500000);
-    }	
+ //       printf(" Attitude roll: %f, pitch: %f, yaw: %f \n", attitude.x, attitude.y, attitude.z);
+		dt_print_sum = 0;
 
-//   while(1) {
-//
-//   }
+	}
+
+	velocity_prev = velocity;
+
+//	accel_prev = accel;
+
+        usleep(USLEEP_T);
+    }	
 
 
    pthread_exit(NULL);
@@ -178,9 +244,6 @@ bool Copter::althold_init(bool ignore_checks)
     td[2].address = 0x3c;
     td[2].s_rel_pose = Vector3d(0.1, 0.1, 0.12);
     td[2].s_rot_matrix.from_euler(0.0, 0.0, 0.0);
-    td[3].address = 0x37;
-    td[3].s_rel_pose = Vector3d(0.1, 0.2, 0.12);
-    td[3].s_rot_matrix.from_euler(0.0, 0.0, 0.0);
 
     for( cont=0; cont < NUM_SONARS; cont++ ){
       std::cout <<" creating thread SONAR " << cont << std::endl;
@@ -224,12 +287,10 @@ void Copter::althold_run()
 
     uint32_t now_milli = AP_HAL::millis();
 
-    double timestamp = now_milli/1000;
+    double timestamp = now_milli*0.001;
 
     attitude = Vector3d(ahrs.roll, ahrs.pitch, ahrs.yaw);
-
-    Vector3d velocity (0.0, 0.0, 0.0);
-
+  	
     cv.nav_callback(timestamp, attitude, velocity , position, target_roll, target_pitch, target_yaw_rate, target_climb_rate);
 
 
