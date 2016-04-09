@@ -119,7 +119,7 @@ void Project::Acceleration::updateAcceleration(double ax1, double ay1, double az
     if (fabs(val.x) <= MIN_ACC) val.x = 0.0;
     if (fabs(val.y) <= MIN_ACC) val.y = 0.0;
     if (fabs(val.z) <= MIN_ACC) val.z = 0.0;
-    //val*= G_SI;
+    val*= G_SI;
 
     return val;
  }
@@ -132,7 +132,7 @@ void Project::Acceleration::updateAcceleration(double ax1, double ay1, double az
    	if (fabs(val.y) <= MIN_ACC) val.y = 0.0;
     	if (fabs(val.z) <= MIN_ACC) val.z = 0.0;
 	timestamp = buffer_acc.at(buffer_acc.size()-2).time_us;
-	//val*= G_SI;
+		val*= G_SI;
         return val;
     }
     else {

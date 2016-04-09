@@ -62,6 +62,7 @@ void *sonars_callback(void *threadarg)
 		if (val <= MAX_READING) {
 
 			float range = val/100.0;
+			//printf("range %f \n", range);
 			//cv.sonar_callback(range, my_data->s_rel_pose, my_data->s_rot_matrix, position, attitude, 0);
 
 		} else {
@@ -178,15 +179,15 @@ void *pose_callback(void *threadid)
 
 		if (dt_print_sum >= 50000) {
 
-			printf("Acc1  %+7.3f %+7.3f %+7.3f \n", -aym, -axm, azm);
+		//	printf("Acc1  %+7.3f %+7.3f %+7.3f \n", -aym, -axm, azm);
 
-			printf("Acc2  %+7.3f %+7.3f %+7.3f \n", -ayl, -axl, azl);
+		//	printf("Acc2  %+7.3f %+7.3f %+7.3f \n", -ayl, -axl, azl);
 
 			printf("Acce  %+7.8f %+7.8f %+7.8f \n", accel.x, accel.y, accel.z);
 
 			//printf("Accp  %+7.8f %+7.8f %+7.8f \n", accel_prev.x, accel_prev.y, accel_prev.z);
 
-			//printf("Vela  %+7.8f %+7.8f %+7.8f \n", velocity.x, velocity.y, velocity.z);
+			printf("Vela  %+7.8f %+7.8f %+7.8f \n", velocity.x, velocity.y, velocity.z);
 
 			printf("Posi  %+7.8f %+7.8f %+7.8f \n", position.x, position.y, position.z);
 
@@ -261,14 +262,14 @@ bool Copter::althold_init(bool ignore_checks)
     }
 
     td[0].address = 0x3a;
-    td[0].s_rel_pose = Vector3d(0.1, -0.1, 0.12);
+    td[0].s_rel_pose = Vector3d(0.18,  0.0, -0.08);
     td[0].s_rot_matrix.from_euler(0.0, 0.0, 0.0);
     td[1].address = 0x70;
-    td[1].s_rel_pose = Vector3d(0.1, -0.2, 0.12);
-    td[1].s_rot_matrix.from_euler(0.0, 0.0, 0.0);
+    td[1].s_rel_pose = Vector3d(0.17, -0.035, -0.08);
+    td[1].s_rot_matrix.from_euler(0.0, 0.0, 0.7853);
     td[2].address = 0x3c;
-    td[2].s_rel_pose = Vector3d(0.1, 0.1, 0.12);
-    td[2].s_rot_matrix.from_euler(0.0, 0.0, 0.0);
+    td[2].s_rel_pose = Vector3d(0.17, 0.035, -0.08);
+    td[2].s_rot_matrix.from_euler(0.0, 0.0, -0.7853);
 
     for( cont=0; cont < NUM_SONARS; cont++ ){
       std::cout <<" creating thread SONAR " << cont << std::endl;
