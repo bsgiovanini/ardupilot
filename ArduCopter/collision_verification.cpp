@@ -8,6 +8,15 @@
 
 #include "collision_verification.h"
 
+void CollisionVerification::initMap() {
+
+	pthread_mutex_lock(&lock);
+
+	tree.clear();
+
+	pthread_mutex_unlock(&lock);
+}
+
 
 std::vector<Vector3d> CollisionVerification::predict_trajectory2(Vector3d xdot0, Vector3d x0, float tstart, float tend, float dt_p, Vector3d future_position) {
 
@@ -120,12 +129,17 @@ void CollisionVerification::sonar_callback(float range, Vector3d s_rel_pose, Mat
 
     if (global_end_ray.z > 0.1) {  //evict the ground
 
-           tree.insertRay (startPoint, endPoint, MAP_MAX_RANGE);
+		pthread_mutex_lock(&lock);
+
+		tree.insertRay (startPoint, endPoint, MAP_MAX_RANGE);
+
+		pthread_mutex_unlock(&lock);
+
     }
 
 }
 
-void CollisionVerification::nav_callback(double timestamp, Vector3d attitude, Vector3d velocity, Vector3d position, double &desired_roll_cmd, double &desired_pitch_cmd, double &desired_yaw_cmd, double &desired_climb_cmd) {
+void CollisionVerification::nav_callback(double timestamp, Vector3d attitude, Vector3d velocity, Vector3d position, float &desired_roll_cmd, float &desired_pitch_cmd, float &desired_yaw_cmd, float &desired_climb_cmd) {
 
     Vector3d future_position;
 
@@ -156,10 +170,10 @@ void CollisionVerification::nav_callback(double timestamp, Vector3d attitude, Ve
 
            std::cout << "SENDING AUTOMATIC CONTROLS" << std::endl;
 
-               desired_roll_cmd = cx;
-               desired_pitch_cmd = cy;
-               desired_yaw_cmd = cyaw;
-               desired_climb_cmd = cz;
+               desired_roll_cmd = (float)cx;
+               desired_pitch_cmd = (float)cy;
+               desired_yaw_cmd = (float)cyaw;
+               desired_climb_cmd = (float)cz;
 
             } else {
 

@@ -22,6 +22,7 @@
 #include <octomap/OcTree.h>
 #include <AP_Math/AP_Math.h>
 #include <math.h>
+#include <pthread.h>
 
 
 class PID {
@@ -89,10 +90,18 @@ class CollisionVerification
             pid_y(0.5, 0, 0.35),
             pid_z(0.8, 0, 0.35),
             pid_yaw(1.0, 0, 0.30),
-            yaw_obj(0){}
+            yaw_obj(0){
+
+        		if (pthread_mutex_init(&lock, NULL) != 0)
+        	    {
+        	        printf("\n mutex init failed\n");
+
+        	    }
+        }
         void sonar_callback(float range, Vector3d s_rel_pose, Matrix3d s_rel_rot_pose, Vector3d v_pose, Vector3d attitude, int debug);
         //timestamp in seconds
-        void nav_callback(double timestamp, Vector3d attitude, Vector3d velocity, Vector3d position, double &desired_roll_cmd, double &desired_pitch_cmd, double &desired_yaw_cmd, double &desired_climb_cmd);
+        void nav_callback(double timestamp, Vector3d attitude, Vector3d velocity, Vector3d position, float &desired_roll_cmd, float &desired_pitch_cmd, float &desired_yaw_cmd, float &desired_climb_cmd);
+        void initMap();
     private:
         octomap::OcTree tree;
         int control_mode; // init
@@ -103,6 +112,7 @@ class CollisionVerification
         PID pid_yaw; //(1.0, 0, 0.30); init
         Vector3d pos_obj;
         double yaw_obj;
+        pthread_mutex_t lock;
 
         std::vector<Vector3d> predict_trajectory2(Vector3d xdot0, Vector3d x0, float tstart, float tend, float dt_p, Vector3d future_position);
 
@@ -123,6 +133,8 @@ class CollisionVerification
 
         int in_perimeter(Vector3d pos, Vector3d obs_center, float c_factor);
         int there_will_be_collision(Vector3d pos, Vector3d obs_center);
+
+
 };
 
 

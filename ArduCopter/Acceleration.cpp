@@ -3,6 +3,8 @@
 void Project::Acceleration::getRawAcc(double ax1, double ay1, double az1, double ax2, double ay2, double az2, Vector3d &acc1, Vector3d &acc2, unsigned long long &time_us) {
 
     struct timeval time_sample;
+
+
     acc1 = Vector3d(ax1, ay1, az1);
     acc2 = Vector3d(ax2, ay2, az2);
 
@@ -43,9 +45,9 @@ void Project::Acceleration::updateAcceleration(double ax1, double ay1, double az
     getRawAcc(ax1, ay1, az1, ax2, ay2, az2, acc1, acc2, time);
 
 
-//    printf("acc1  %+7.3f %+7.3f %+7.3f \n", acc1.x, acc1.y, acc1.z);
+    //printf("acc1  %+7.3f %+7.3f %+7.3f \n", acc1.x, acc1.y, acc1.z);
 
-//    printf("acc2  %+7.3f %+7.3f %+7.3f \n", acc2.x, acc2.y, acc2.z);
+    //printf("acc2  %+7.3f %+7.3f %+7.3f \n", acc2.x, acc2.y, acc2.z);
 
     if (!acceptDiffAccs(acc1, acc2)) { //eliminate if the difference between accs is big
 
@@ -56,6 +58,8 @@ void Project::Acceleration::updateAcceleration(double ax1, double ay1, double az
 
 
     Vector3d acc = (acc1 + acc2) * 0.5;
+
+
 
 //    printf("Acc1  %+7.3f %+7.3f %+7.3f \n", acc.x, acc.y, acc.z);
 
@@ -115,7 +119,7 @@ void Project::Acceleration::updateAcceleration(double ax1, double ay1, double az
     if (fabs(val.x) <= MIN_ACC) val.x = 0.0;
     if (fabs(val.y) <= MIN_ACC) val.y = 0.0;
     if (fabs(val.z) <= MIN_ACC) val.z = 0.0;
-    val*= G_SI;	
+    //val*= G_SI;
 
     return val;
  }
@@ -128,7 +132,7 @@ void Project::Acceleration::updateAcceleration(double ax1, double ay1, double az
    	if (fabs(val.y) <= MIN_ACC) val.y = 0.0;
     	if (fabs(val.z) <= MIN_ACC) val.z = 0.0;
 	timestamp = buffer_acc.at(buffer_acc.size()-2).time_us;
-	val*= G_SI;
+	//val*= G_SI;
         return val;
     }
     else {
@@ -139,17 +143,27 @@ void Project::Acceleration::updateAcceleration(double ax1, double ay1, double az
 
 void Project::Acceleration::handleAcceleration(Vector3d &acc, Vector3d attitude) {
 
-   Matrix3d rotmat;
+   Quaternion q;
 
-   rotmat.from_euler(attitude.x, attitude.y, attitude.z);
+   q.from_euler(attitude.x, attitude.y, attitude.z);
 
-   //acc = rotmat * acc - Vector3d(0, 0, 1);
+   Matrix3f rot;
 
-   Vector3d g_rot = rotmat.mul_transpose(Vector3d(0, 0, 1.0));
+   q.rotation_matrix(rot);
 
+   //Vector3f g(0.0, 0.0, 1.0);
+
+   //q.earth_to_body(g);
+   Vector3f accf;
+
+   accf.x = (float)acc.x;
+   accf.y = (float)acc.y;
+   accf.z = (float)acc.z;
+
+   accf = rot * accf - Vector3f(0, 0, 1);
 //   printf("grot  %+7.3f %+7.3f %+7.3f \n", g_rot.x, g_rot.y, g_rot.z);
-
-   acc -= g_rot;
-
+   acc.x = (double)accf.x;
+   acc.y = (double)accf.y;
+   acc.z = (double)accf.z;
 }
 

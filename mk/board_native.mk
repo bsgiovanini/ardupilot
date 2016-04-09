@@ -60,7 +60,7 @@ LDFLAGS        +=   -Wl,--gc-sections -Wl,-Map -Wl,$(SKETCHMAP)
 endif
 
 LIBS ?= -lm -pthread 
-LIBS += -loctomap -loctomath
+LIBS += -loctomap -loctomath -lwiringPi
 ifneq ($(findstring CYGWIN, $(SYSTYPE)),)
 LIBS += -lwinmm
 endif
