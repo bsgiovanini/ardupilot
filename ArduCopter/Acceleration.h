@@ -1,6 +1,5 @@
-#define ACC_BUFFER_SIZE 2
 #define ACC_DIFF_1_AND_2 0.5
-#define ACC_MAX 3.5
+#define ACC_MAX 2.0
 //#define ACC_DELTA_T 100000 //in microssec. deve ser <= ao intervalo de amostras da IMU
 #define TIME(a,b) ((a*1000000ull) + b)
 #define MIN_ACC 0.03
@@ -21,6 +20,8 @@
 
 #include <deque>
 
+#include <fstream>
+
 using namespace std;
 
 
@@ -37,6 +38,8 @@ namespace Project {
         public:
 
             deque<sample> buffer_acc;
+
+            int buffer_acc_size;
   
             unsigned long long deltaT;
 
@@ -54,19 +57,13 @@ namespace Project {
 
             Vector3d getPrevAcceleration(unsigned long long &timestamp);
 
-	    void handleAcceleration(Vector3d &acc, Vector3d attitude);
+            void handleAcceleration(Vector3d &acc, Vector3d attitude);
 
-	    Acceleration(float delta) {
-		deltaT = delta;
-	    }
-
-    };
-
-    class Velocity {
-
-        public:
+            Acceleration(float delta, int buffer_size) {
+            	deltaT = delta;
+            	buffer_acc_size = buffer_size;
+            }
 
     };
-
 
 }

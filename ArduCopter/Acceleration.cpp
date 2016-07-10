@@ -72,39 +72,32 @@ void Project::Acceleration::updateAcceleration(double ax1, double ay1, double az
    
 //    printf("Acc2  %+7.3f %+7.3f %+7.3f \n", acc.x, acc.y, acc.z);
 
-    if (buffer_acc.empty()) { //first measurement
-        sample sp;
-        sp.data = acc;
-        sp.time_us = time;
-        buffer_acc.push_back(sp);
-        return;
-    }
+    sample sp;
+    sp.data = acc;
+    sp.time_us = time;
+    buffer_acc.push_back(sp);
 
-    sample newSample;
-    newSample.data = acc;
-    newSample.time_us = time;
-
-    for(deque<sample>::iterator it = buffer_acc.begin(); it != buffer_acc.end(); it++){
-        sample s = *it;
-        newSample.data += s.data;
-    }
-    newSample.data = newSample.data/(buffer_acc.size() + 1);
+    //for(deque<sample>::iterator it = buffer_acc.begin(); it != buffer_acc.end(); it++){
+    //    sample s = *it;
+    //    newSample.data += s.data;
+    //}
+    //newSample.data = newSample.data/(buffer_acc.size() + 1);
 
  	
-    unsigned long long timeSample = buffer_acc.back().time_us + deltaT;
+    //unsigned long long timeSample = buffer_acc.back().time_us + deltaT;
 
-    if (timeSample <= time) {
+	/*while (timeSample <= time) {
+		sample sp;
+		sp.data = doInterpolation(buffer_acc.back(), newSample);
+		sp.time_us = timeSample;
+		buffer_acc.push_back(sp);
+		timeSample += deltaT;
+	}*/
 
-        while (timeSample <= time) {
-            sample sp;
-            sp.data = doInterpolation(buffer_acc.back(), newSample);
-            sp.time_us = timeSample;
-            buffer_acc.push_back(sp);
-            timeSample += deltaT;
-        }
-    }
+    //buffer_acc.push_back(newSample);
 
-    while (buffer_acc.size() > ACC_BUFFER_SIZE) {
+
+    while (buffer_acc.size() > buffer_acc_size) {
         buffer_acc.pop_front();
     }
 
@@ -113,12 +106,21 @@ void Project::Acceleration::updateAcceleration(double ax1, double ay1, double az
 
  Vector3d Project::Acceleration::getAcceleration(unsigned long long &timestamp) {
 
-    sample acc = buffer_acc.back();
+
+	 sample acc;
+	 acc.data = Vector3d(0.0,0.0,0.0);
+	for(deque<sample>::iterator it = buffer_acc.begin(); it != buffer_acc.end(); it++){
+	    sample s = *it;
+	    acc.data += s.data;
+	}
+	acc.data = acc.data/(buffer_acc.size());
+
     timestamp = acc.time_us;
     Vector3d val = acc.data;
     if (fabs(val.x) <= MIN_ACC) val.x = 0.0;
     if (fabs(val.y) <= MIN_ACC) val.y = 0.0;
     if (fabs(val.z) <= MIN_ACC) val.z = 0.0;
+
     val*= G_SI;
 
     return val;
@@ -129,14 +131,14 @@ void Project::Acceleration::updateAcceleration(double ax1, double ay1, double az
 
        	Vector3d val = buffer_acc.at(buffer_acc.size()-2).data;
     	if (fabs(val.x) <= MIN_ACC) val.x = 0.0;
-   	if (fabs(val.y) <= MIN_ACC) val.y = 0.0;
+    	if (fabs(val.y) <= MIN_ACC) val.y = 0.0;
     	if (fabs(val.z) <= MIN_ACC) val.z = 0.0;
-	timestamp = buffer_acc.at(buffer_acc.size()-2).time_us;
+    	timestamp = buffer_acc.at(buffer_acc.size()-2).time_us;
 		val*= G_SI;
         return val;
     }
     else {
-	timestamp = 0;
+    	timestamp = 0;
         return Vector3d(0,0,0);
     }
  }
@@ -160,8 +162,10 @@ void Project::Acceleration::handleAcceleration(Vector3d &acc, Vector3d attitude)
    accf.y = (float)acc.y;
    accf.z = (float)acc.z;
 
-   accf = rot * accf - Vector3f(0, 0, 1);
-//   printf("grot  %+7.3f %+7.3f %+7.3f \n", g_rot.x, g_rot.y, g_rot.z);
+   accf = accf - rot.mul_transpose(Vector3f(0, 0, 1));
+
+   //accf = rot * accf - Vector3f(0, 0, 1);
+   //printf("grot  %+7.8f %+7.8f %+7.8f \n", accf.x, accf.y, accf.z);
    acc.x = (double)accf.x;
    acc.y = (double)accf.y;
    acc.z = (double)accf.z;

@@ -11,14 +11,18 @@
 #include "Acceleration.h"
 #include <wiringPi.h>
 #include <wiringPiI2C.h>
+#include <fstream>
 
 
 #define G_SI          9.80665
 #define NUM_SONARS     3
-#define USLEEP_T       1000
+#define USLEEP_T       6000
 #define ZERO_ACC_LIMIT 64
 #define MAX_READING 100
 #define POS_RESET_INTERVAL 5000000
+#define ACC_BUFFER_SIZE 5
+#define POSE_CALC_INTERVAL USLEEP_T
+#define TIME(a,b) ((a*1000000ull) + b)
 
 
 struct thread_data{
@@ -63,7 +67,7 @@ void *sonars_callback(void *threadarg)
 
 			float range = val/100.0;
 			//printf("range %f \n", range);
-			//cv.sonar_callback(range, my_data->s_rel_pose, my_data->s_rot_matrix, position, attitude, 0);
+			cv.sonar_callback(range, my_data->s_rel_pose, my_data->s_rot_matrix, position, attitude, 0);
 
 		} else {
 			//printf("Not sending %f \n", val/100.0);
@@ -79,7 +83,15 @@ void *pose_callback(void *threadid)
 
    InertialSensor *mpu, *lsm;
 
-   Project::Acceleration acc(USLEEP_T);
+   ofstream result_txt;
+
+   result_txt.open("navio2.csv");
+
+   result_txt << "time, axm_ori, axl_ori, aym_ori, ayl_ori, azm_ori, azl_ori, axm, axl, aym, ayl, azm, azl, acc1x, acc1y, acc1z, acc2x, acc2y, acc2z, acc3x, acc3y, acc3z\n";
+
+   Project::Acceleration acc1(USLEEP_T, ACC_BUFFER_SIZE);
+   Project::Acceleration acc2(USLEEP_T, 20);
+   Project::Acceleration acc3(USLEEP_T, 60);
    mpu = new MPU9250();
    lsm = new LSM9DS1();
 
@@ -96,6 +108,7 @@ void *pose_callback(void *threadid)
    std::cout << "Pose Thread ID, " << tid << std::endl;
 
    float axm, axl, aym, ayl, azm, azl;
+   float axm_ori, axl_ori, aym_ori, ayl_ori, azm_ori, azl_ori;
    float axm_offset = -0.0137;
    float aym_offset = 0.0127;
    float azm_offset = -0.0630;
@@ -105,79 +118,116 @@ void *pose_callback(void *threadid)
 
    Vector3d velocity_prev(0.0, 0.0, 0.0);
 
-  // Vector3d accel_prev(0.0, 0.0, 0.0);
+   Vector3d accel_prev(0.0, 0.0, 0.0);
 
    int count_zeros_acc = 0;
 
-//   struct timeval start_sp, end_sp;
+   struct timeval start_sp, end_sp;
 
    unsigned long long dt_print_sum = 0;
 
    unsigned long long dt_reset_sum = 0;
 
+   unsigned long long dt_calc_vel_sum = 0;
+
+   unsigned long long dt_usec = USLEEP_T;
+
+   unsigned long long start_loop_time, end_loop_time;
+
+   unsigned long long loop_interval_usec;
+
 //-------------------------------------------------------------------------
 
     while(1) {
 
-		//       gettimeofday(&start_sp, NULL);
-		//       unsigned long long start_t_us = TIME(start_sp.tv_sec,start_sp.tv_usec);
+    	gettimeofday(&start_sp,NULL);
+    	start_loop_time = TIME(start_sp.tv_sec,start_sp.tv_usec);
 
 		mpu->update();
 		lsm->update();
-		mpu->read_accelerometer(&axm, &aym, &azm);
-		lsm->read_accelerometer(&axl, &ayl, &azl);
-		axm=axm/G_SI - axm_offset;
-		aym=aym/G_SI - aym_offset;
-		azm=azm/G_SI - azm_offset;
-		axl=axl/G_SI - axl_offset;
-		ayl=ayl/G_SI - ayl_offset;
-		azl=azl/G_SI - azl_offset;
+		mpu->read_accelerometer(&axm_ori, &aym_ori, &azm_ori);
+		lsm->read_accelerometer(&axl_ori, &ayl_ori, &azl_ori);
+		axm=axm_ori/G_SI - axm_offset;
+		aym=aym_ori/G_SI - aym_offset;
+		azm=azm_ori/G_SI - azm_offset;
+		axl=axl_ori/G_SI - axl_offset;
+		ayl=ayl_ori/G_SI - ayl_offset;
+		azl=azl_ori/G_SI - azl_offset;
 
-		acc.updateAcceleration(-aym, -axm, azm, -ayl, -axl, azl, attitude);
-
-		unsigned long long time_acc;
-		Vector3d accel = acc.getAcceleration(time_acc);
-
-		if (accel.is_zero()) {
-			count_zeros_acc++;
-		} else {
-			count_zeros_acc = 0;
-		}
+		acc1.updateAcceleration(-aym, -axm, azm, -ayl, -axl, azl, attitude);
+		acc2.updateAcceleration(-aym, -axm, azm, -ayl, -axl, azl, attitude);
+		acc3.updateAcceleration(-aym, -axm, azm, -ayl, -axl, azl, attitude);
 
 
-		unsigned long long time_prev;
-		Vector3d accel_prev = acc.getPrevAcceleration(time_prev);
+		//unsigned long long time_prev;
+		//Vector3d accel_prev = acc.getPrevAcceleration(time_prev);
 
-		if (time_prev == 0llu) time_prev = time_acc;
+		//if (time_prev == 0llu) time_prev = time_acc;
 
-		unsigned long long dt_usec = time_acc - time_prev;
+		//unsigned long long dt_usec = time_acc - time_prev;
 
-		double dt = dt_usec * 0.000001;
 
 		dt_print_sum += dt_usec;
 
 		dt_reset_sum += dt_usec;
 
+		dt_calc_vel_sum += dt_usec;
+
 		//printf("dt   %f\n", dt);
 
-		if (count_zeros_acc >= ZERO_ACC_LIMIT) {
-			velocity = Vector3d(0.0, 0.0, 0.0);
-		} else {
-			velocity = velocity + (accel_prev + accel)*0.5*dt;
-		}
+		//if (dt_calc_vel_sum >= POSE_CALC_INTERVAL) { //interval to calc velocity and position
 
-		//if (dt_reset_sum >= POS_RESET_INTERVAL) {
 
-		//	cv.initMap();
-		//	position = Vector3d(0.0, 0.0, 0.0);
+			unsigned long long time_acc;
+			Vector3d accel = acc1.getAcceleration(time_acc);
+			Vector3d accel2 = acc2.getAcceleration(time_acc);
+			Vector3d accel3 = acc3.getAcceleration(time_acc);
 
-		//} else {
-			position = position + (velocity_prev + velocity)*0.5*dt;
+			result_txt
+			        << time_acc << ","
+			        << axm_ori << "," << aym_ori << "," << azm_ori << ","
+			        << axl_ori << "," << ayl_ori << "," << azl_ori << ","
+			        << axm*G_SI << "," << aym*G_SI << "," << azm*G_SI << ","
+			        << axl*G_SI << "," << ayl*G_SI << "," << azl*G_SI << ","
+			        << accel.x << "," << accel.y << "," << accel.z << ","
+			        << accel2.x << "," << accel2.y << "," << accel2.z << ","
+			        << accel3.x << "," << accel3.y << "," << accel3.z << ","
+			        << endl;
+
+
+
+			if (accel.is_zero()) {
+				count_zeros_acc++;
+			} else {
+				count_zeros_acc = 0;
+			}
+
+			//double dt = dt_usec / 1000000.0; //microsec to sec
+
+			if (count_zeros_acc >= ZERO_ACC_LIMIT) {
+				velocity = Vector3d(0.0, 0.0, 0.0);
+			} else {
+				velocity = velocity + ((accel_prev + accel)*0.5*dt_usec)/1000000.0;
+			}
+			//if (dt_reset_sum >= POS_RESET_INTERVAL) {
+
+			//	cv.initMap();
+			//	position = Vector3d(0.0, 0.0, 0.0);
+			//    dt_reset_sum = 0;
+
+			//} else {
+				position = position + ((velocity_prev + velocity)*0.5*dt_usec)/1000000.0;
+
+			//}
+
+			velocity_prev = velocity;
+
+			accel_prev = accel;
+
+			dt_calc_vel_sum = 0;
 		//}
 
-
-
-		if (dt_print_sum >= 50000) {
+		if (dt_print_sum >= 500000) { // interval to print on screen
 
 		//	printf("Acc1  %+7.3f %+7.3f %+7.3f \n", -aym, -axm, azm);
 
@@ -207,14 +257,14 @@ void *pose_callback(void *threadid)
 			dt_print_sum = 0;
 
 		}
-
-
-
-		velocity_prev = velocity;
-
-		//	accel_prev = accel;
 		
-		usleep(USLEEP_T);
+		gettimeofday(&end_sp,NULL);
+		end_loop_time = TIME(end_sp.tv_sec,end_sp.tv_usec);
+
+		loop_interval_usec = end_loop_time - start_loop_time;
+
+		if (loop_interval_usec <= USLEEP_T) usleep(USLEEP_T - loop_interval_usec); else printf("lento\n");
+
     }	
 
 
