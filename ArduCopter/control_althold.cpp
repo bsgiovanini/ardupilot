@@ -87,7 +87,7 @@ void *pose_callback(void *threadid)
 
    result_txt.open("navio2.csv");
 
-   result_txt << "time, axm_ori, axl_ori, aym_ori, ayl_ori, azm_ori, azl_ori, axm, axl, aym, ayl, azm, azl, acc1x, acc1y, acc1z, acc2x, acc2y, acc2z, acc3x, acc3y, acc3z\n";
+   result_txt << "time, axm_ori, aym_ori, azm_ori, axl_ori, ayl_ori, azl_ori, axm, aym, azm, axl, ayl, azl, acc1x, acc1y, acc1z, acc2x, acc2y, acc2z, acc3x, acc3y, acc3z\n";
 
    Project::Acceleration acc1(USLEEP_T, ACC_BUFFER_SIZE);
    Project::Acceleration acc2(USLEEP_T, 20);
@@ -147,12 +147,18 @@ void *pose_callback(void *threadid)
 		lsm->update();
 		mpu->read_accelerometer(&axm_ori, &aym_ori, &azm_ori);
 		lsm->read_accelerometer(&axl_ori, &ayl_ori, &azl_ori);
-		axm=axm_ori/G_SI - axm_offset;
-		aym=aym_ori/G_SI - aym_offset;
-		azm=azm_ori/G_SI - azm_offset;
-		axl=axl_ori/G_SI - axl_offset;
-		ayl=ayl_ori/G_SI - ayl_offset;
-		azl=azl_ori/G_SI - azl_offset;
+		axm_ori=axm_ori/G_SI;
+		axm	= axm_ori - axm_offset;
+		aym_ori=aym_ori/G_SI;
+		aym = aym_ori - aym_offset;
+		azm_ori=azm_ori/G_SI;
+		azm = azm_ori - azm_offset;
+		axl_ori = axl_ori/G_SI;
+		axl = axl_ori - axl_offset;
+		ayl_ori = ayl_ori/G_SI;
+		ayl = ayl_ori - ayl_offset;
+		azl_ori = azl_ori/G_SI;
+		azl = azl_ori - azl_offset;
 
 		acc1.updateAcceleration(-aym, -axm, azm, -ayl, -axl, azl, attitude);
 		acc2.updateAcceleration(-aym, -axm, azm, -ayl, -axl, azl, attitude);
@@ -187,8 +193,8 @@ void *pose_callback(void *threadid)
 			        << time_acc << ","
 			        << axm_ori << "," << aym_ori << "," << azm_ori << ","
 			        << axl_ori << "," << ayl_ori << "," << azl_ori << ","
-			        << axm*G_SI << "," << aym*G_SI << "," << azm*G_SI << ","
-			        << axl*G_SI << "," << ayl*G_SI << "," << azl*G_SI << ","
+			        << axm << "," << aym << "," << azm << ","
+			        << axl << "," << ayl << "," << azl << ","
 			        << accel.x << "," << accel.y << "," << accel.z << ","
 			        << accel2.x << "," << accel2.y << "," << accel2.z << ","
 			        << accel3.x << "," << accel3.y << "," << accel3.z << ","
