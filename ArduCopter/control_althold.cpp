@@ -87,7 +87,7 @@ void *pose_callback(void *threadid)
 
    result_txt.open("navio2.csv");
 
-   result_txt << "time, axm_ori, aym_ori, azm_ori, axl_ori, ayl_ori, azl_ori, axm, aym, azm, axl, ayl, azl, acc1x, acc1y, acc1z, acc2x, acc2y, acc2z, acc3x, acc3y, acc3z\n";
+   result_txt << "time, axm_ori, aym_ori, azm_ori, axl_ori, ayl_ori, azl_ori, axm, aym, azm, axl, ayl, azl, axm_a, aym_a, azm_a, axl_a, ayl_a, azl_a, acc1x, acc1y, acc1z, acc2x, acc2y, acc2z, acc3x, acc3y, acc3z\n";
 
    Project::Acceleration acc1(USLEEP_T, 1);
    Project::Acceleration acc2(USLEEP_T, 20);
@@ -195,6 +195,8 @@ void *pose_callback(void *threadid)
 			        << axl_ori << "," << ayl_ori << "," << azl_ori << ","
 			        << axm << "," << aym << "," << azm << ","
 			        << axl << "," << ayl << "," << azl << ","
+			        << -aym << "," << -axm << "," << azm << ","
+			        << -ayl << "," << -axl << "," << azl << ","
 			        << accel.x << "," << accel.y << "," << accel.z << ","
 			        << accel2.x << "," << accel2.y << "," << accel2.z << ","
 			        << accel3.x << "," << accel3.y << "," << accel3.z << ","
