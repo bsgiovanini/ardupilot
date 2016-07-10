@@ -190,7 +190,7 @@ void *pose_callback(void *threadid)
 			Vector3d accel3 = acc3.getAcceleration(time_acc);
 
 			result_txt
-			        << time_acc << ","
+			        << start_loop_time << ","
 			        << axm_ori << "," << aym_ori << "," << azm_ori << ","
 			        << axl_ori << "," << ayl_ori << "," << azl_ori << ","
 			        << axm << "," << aym << "," << azm << ","
