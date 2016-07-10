@@ -68,7 +68,7 @@ void Project::Acceleration::updateAcceleration(double ax1, double ay1, double az
         return;
     }
 
-    handleAcceleration(acc, attitude);
+    //handleAcceleration(acc, attitude);
    
 //    printf("Acc2  %+7.3f %+7.3f %+7.3f \n", acc.x, acc.y, acc.z);
 
@@ -117,9 +117,9 @@ void Project::Acceleration::updateAcceleration(double ax1, double ay1, double az
 
     timestamp = acc.time_us;
     Vector3d val = acc.data;
-    if (fabs(val.x) <= MIN_ACC) val.x = 0.0;
-    if (fabs(val.y) <= MIN_ACC) val.y = 0.0;
-    if (fabs(val.z) <= MIN_ACC) val.z = 0.0;
+    //if (fabs(val.x) <= MIN_ACC) val.x = 0.0;
+    //if (fabs(val.y) <= MIN_ACC) val.y = 0.0;
+    //if (fabs(val.z) <= MIN_ACC) val.z = 0.0;
 
     val*= G_SI;
 

@@ -89,7 +89,7 @@ void *pose_callback(void *threadid)
 
    result_txt << "time, axm_ori, aym_ori, azm_ori, axl_ori, ayl_ori, azl_ori, axm, aym, azm, axl, ayl, azl, acc1x, acc1y, acc1z, acc2x, acc2y, acc2z, acc3x, acc3y, acc3z\n";
 
-   Project::Acceleration acc1(USLEEP_T, ACC_BUFFER_SIZE);
+   Project::Acceleration acc1(USLEEP_T, 1);
    Project::Acceleration acc2(USLEEP_T, 20);
    Project::Acceleration acc3(USLEEP_T, 60);
    mpu = new MPU9250();
