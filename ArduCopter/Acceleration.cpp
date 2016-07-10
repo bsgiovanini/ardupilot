@@ -121,7 +121,7 @@ void Project::Acceleration::updateAcceleration(double ax1, double ay1, double az
     //if (fabs(val.y) <= MIN_ACC) val.y = 0.0;
     //if (fabs(val.z) <= MIN_ACC) val.z = 0.0;
 
-    val*= G_SI;
+    //val*= G_SI;
 
     return val;
  }
