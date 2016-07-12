@@ -1,8 +1,8 @@
-#define ACC_DIFF_1_AND_2 0.5
-#define ACC_MAX 2.0
+#define ACC_DIFF_1_AND_2 0.1
+#define MAX_ACC 2.0
 //#define ACC_DELTA_T 100000 //in microssec. deve ser <= ao intervalo de amostras da IMU
 #define TIME(a,b) ((a*1000000ull) + b)
-#define MIN_ACC 0.03
+#define MIN_ACC 0.5
 #define G_SI 9.80665
 
 #include <math.h>

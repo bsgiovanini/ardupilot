@@ -21,7 +21,7 @@ bool Project::Acceleration::acceptDiffAccs(Vector3d acc1, Vector3d acc2) {
 
 bool Project::Acceleration::acceptMaxAcc(Vector3d acc) {
 
-    return (fabs(acc.x) <= ACC_MAX && fabs(acc.y) <= ACC_MAX && fabs(acc.z) <= ACC_MAX);
+    return (fabs(acc.x) <= MAX_ACC && fabs(acc.y) <= MAX_ACC && fabs(acc.z) <= MAX_ACC);
 }
 
 Vector3d Project::Acceleration::doInterpolation(sample lastS, sample newS) {
@@ -68,7 +68,7 @@ void Project::Acceleration::updateAcceleration(double ax1, double ay1, double az
         return;
     }
 
-    //handleAcceleration(acc, attitude);
+    handleAcceleration(acc, attitude);
    
 //    printf("Acc2  %+7.3f %+7.3f %+7.3f \n", acc.x, acc.y, acc.z);
 
@@ -117,11 +117,6 @@ void Project::Acceleration::updateAcceleration(double ax1, double ay1, double az
 
     timestamp = acc.time_us;
     Vector3d val = acc.data;
-    //if (fabs(val.x) <= MIN_ACC) val.x = 0.0;
-    //if (fabs(val.y) <= MIN_ACC) val.y = 0.0;
-    //if (fabs(val.z) <= MIN_ACC) val.z = 0.0;
-
-    //val*= G_SI;
 
     return val;
  }
@@ -162,12 +157,23 @@ void Project::Acceleration::handleAcceleration(Vector3d &acc, Vector3d attitude)
    accf.y = (float)acc.y;
    accf.z = (float)acc.z;
 
-   accf = accf - rot.mul_transpose(Vector3f(0, 0, 1));
+   //accf = accf - rot.mul_transpose(Vector3f(0, 0, 1));
 
-   //accf = rot * accf - Vector3f(0, 0, 1);
+   accf = rot * accf - Vector3f(0, 0, 1);
+
+   accf*= G_SI;
+
    //printf("grot  %+7.8f %+7.8f %+7.8f \n", accf.x, accf.y, accf.z);
    acc.x = (double)accf.x;
    acc.y = (double)accf.y;
    acc.z = (double)accf.z;
+
+   //printf("grota  %+7.8f %+7.8f %+7.8f \n", acc.x, acc.y, acc.z);
+
+   if (fabs(acc.x) <= MIN_ACC || fabs(acc.x) > MAX_ACC) acc.x = 0.0;
+   if (fabs(acc.y) <= MIN_ACC || fabs(acc.x) > MAX_ACC) acc.y = 0.0;
+   if (fabs(acc.z) <= MIN_ACC || fabs(acc.x) > MAX_ACC) acc.z = 0.0;
+
+   //printf("grotd  %+7.8f %+7.8f %+7.8f \n", acc.x, acc.y, acc.z);
 }
 

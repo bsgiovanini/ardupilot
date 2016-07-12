@@ -16,11 +16,11 @@
 
 #define G_SI          9.80665
 #define NUM_SONARS     3
-#define USLEEP_T       6000
+#define USLEEP_T       10000
 #define ZERO_ACC_LIMIT 64
 #define MAX_READING 100
 #define POS_RESET_INTERVAL 5000000
-#define ACC_BUFFER_SIZE 5
+#define ACC_BUFFER_SIZE 20
 #define POSE_CALC_INTERVAL USLEEP_T
 #define TIME(a,b) ((a*1000000ull) + b)
 
@@ -36,6 +36,12 @@ CollisionVerification cv;
 Vector3d position(0,0,0);
 Vector3d attitude(0,0,0);
 Vector3d velocity(0,0,0);
+
+Vector3d position_raw1(0,0,0);
+Vector3d velocity_raw1(0,0,0);
+
+Vector3d position_raw2(0,0,0);
+Vector3d velocity_raw2(0,0,0);
 
 struct thread_data td[NUM_SONARS];
 
@@ -85,13 +91,17 @@ void *pose_callback(void *threadid)
 
    ofstream result_txt;
 
-   result_txt.open("navio2.csv");
+   result_txt.open("navio2_dif.csv");
 
-   result_txt << "time, axm_ori, aym_ori, azm_ori, axl_ori, ayl_ori, azl_ori, axm, aym, azm, axl, ayl, azl, axm_a, aym_a, azm_a, axl_a, ayl_a, azl_a, acc1x, acc1y, acc1z, acc2x, acc2y, acc2z, acc3x, acc3y, acc3z\n";
+   //result_txt << "time, attx, atty, attz, accx, accy, accz, velx, vely, velz, locx, locy, locz\n";
 
-   Project::Acceleration acc1(USLEEP_T, 1);
-   Project::Acceleration acc2(USLEEP_T, 20);
-   Project::Acceleration acc3(USLEEP_T, 60);
+   result_txt << "time, attx, atty, attz, accx, accy, accz, acc_raw1x, acc_raw1y, acc_raw1z, acc_raw2x, acc_raw2y, acc_raw2z," <<
+		   " velx, vely, velz, vel_raw1x, vel_raw1y, vel_raw1z, vel_raw2x, vel_raw2y, vel_raw2z," <<
+		   " locx, locy, locz, loc_raw1x, loc_raw1y, loc_raw1z, loc_raw2x, loc_raw2y, loc_raw2z,\n";
+
+   Project::Acceleration acc1(USLEEP_T, ACC_BUFFER_SIZE);
+//   Project::Acceleration acc2(USLEEP_T, 20);
+//   Project::Acceleration acc3(USLEEP_T, 60);
    mpu = new MPU9250();
    lsm = new LSM9DS1();
 
@@ -117,8 +127,12 @@ void *pose_callback(void *threadid)
    float azl_offset = -0.0043;
 
    Vector3d velocity_prev(0.0, 0.0, 0.0);
+   Vector3d velocity_prev_raw1(0.0, 0.0, 0.0);
+   Vector3d velocity_prev_raw2(0.0, 0.0, 0.0);
 
    Vector3d accel_prev(0.0, 0.0, 0.0);
+   Vector3d accel_prev_raw1(0.0, 0.0, 0.0);
+   Vector3d accel_prev_raw2(0.0, 0.0, 0.0);
 
    int count_zeros_acc = 0;
 
@@ -135,6 +149,10 @@ void *pose_callback(void *threadid)
    unsigned long long start_loop_time, end_loop_time;
 
    unsigned long long loop_interval_usec;
+
+   double dt = dt_usec / 1000000.0; //microsec to sec
+
+   Vector3d acc_raw1, acc_raw2;
 
 //-------------------------------------------------------------------------
 
@@ -161,8 +179,53 @@ void *pose_callback(void *threadid)
 		azl = azl_ori - azl_offset;
 
 		acc1.updateAcceleration(-aym, -axm, azm, -ayl, -axl, azl, attitude);
-		acc2.updateAcceleration(-aym, -axm, azm, -ayl, -axl, azl, attitude);
-		acc3.updateAcceleration(-aym, -axm, azm, -ayl, -axl, azl, attitude);
+//		acc2.updateAcceleration(-aym, -axm, azm, -ayl, -axl, azl, attitude);
+//		acc3.updateAcceleration(-aym, -axm, azm, -ayl, -axl, azl, attitude);
+
+		acc_raw1 =  Vector3d(-aym, -axm, azm);
+
+		acc_raw2 =  Vector3d(-ayl, -axl, azl);
+
+		Quaternion q;
+
+		q.from_euler(attitude.x, attitude.y, attitude.z);
+
+		Matrix3f rot;
+
+		q.rotation_matrix(rot);
+
+		   //Vector3f g(0.0, 0.0, 1.0);
+
+		   //q.earth_to_body(g);
+		Vector3f accf_raw1, accf_raw2;
+
+		accf_raw1.x = (float)acc_raw1.x;
+		accf_raw1.y = (float)acc_raw1.y;
+		accf_raw1.z = (float)acc_raw1.z;
+
+		accf_raw2.x = (float)acc_raw2.x;
+		accf_raw2.y = (float)acc_raw2.y;
+		accf_raw2.z = (float)acc_raw2.z;
+
+		   //accf = accf - rot.mul_transpose(Vector3f(0, 0, 1));
+
+		accf_raw1 = rot * accf_raw1 - Vector3f(0, 0, 1);
+		accf_raw2 = rot * accf_raw2 - Vector3f(0, 0, 1);
+
+		accf_raw1 *= G_SI;
+		accf_raw2 *= G_SI;
+
+		   //printf("grot  %+7.8f %+7.8f %+7.8f \n", accf.x, accf.y, accf.z);
+		acc_raw1.x = (double)accf_raw1.x;
+		acc_raw1.y = (double)accf_raw1.y;
+		acc_raw1.z = (double)accf_raw1.z;
+
+		acc_raw2.x = (double)accf_raw2.x;
+		acc_raw2.y = (double)accf_raw2.y;
+		acc_raw2.z = (double)accf_raw2.z;
+
+
+
 
 
 		//unsigned long long time_prev;
@@ -186,10 +249,10 @@ void *pose_callback(void *threadid)
 
 			unsigned long long time_acc;
 			Vector3d accel = acc1.getAcceleration(time_acc);
-			Vector3d accel2 = acc2.getAcceleration(time_acc);
-			Vector3d accel3 = acc3.getAcceleration(time_acc);
+//			Vector3d accel2 = acc2.getAcceleration(time_acc);
+//			Vector3d accel3 = acc3.getAcceleration(time_acc);
 
-			result_txt
+/*			result_txt
 			        << start_loop_time << ","
 			        << axm_ori << "," << aym_ori << "," << azm_ori << ","
 			        << axl_ori << "," << ayl_ori << "," << azl_ori << ","
@@ -200,7 +263,7 @@ void *pose_callback(void *threadid)
 			        << accel.x << "," << accel.y << "," << accel.z << ","
 			        << accel2.x << "," << accel2.y << "," << accel2.z << ","
 			        << accel3.x << "," << accel3.y << "," << accel3.z << ","
-			        << endl;
+			        << endl;*/
 
 
 
@@ -210,13 +273,16 @@ void *pose_callback(void *threadid)
 				count_zeros_acc = 0;
 			}
 
-			//double dt = dt_usec / 1000000.0; //microsec to sec
+
 
 			if (count_zeros_acc >= ZERO_ACC_LIMIT) {
 				velocity = Vector3d(0.0, 0.0, 0.0);
 			} else {
-				velocity = velocity + ((accel_prev + accel)*0.5*dt_usec)/1000000.0;
+				velocity = velocity + (accel_prev + accel)*0.5*dt;
 			}
+
+			velocity_raw1 = velocity_raw1 + (accel_prev_raw1 + acc_raw1);
+			velocity_raw2 = velocity_raw2 + (accel_prev_raw2 + acc_raw2);
 			//if (dt_reset_sum >= POS_RESET_INTERVAL) {
 
 			//	cv.initMap();
@@ -224,22 +290,20 @@ void *pose_callback(void *threadid)
 			//    dt_reset_sum = 0;
 
 			//} else {
-				position = position + ((velocity_prev + velocity)*0.5*dt_usec)/1000000.0;
+				position = position + (velocity_prev + velocity)*0.5*dt;
+				position_raw1 = position_raw1 + (velocity_prev_raw1 + velocity_raw1)*0.5*dt;
+				position_raw2 = position_raw2 + (velocity_prev_raw2 + velocity_raw2)*0.5*dt;
 
 			//}
 
-			velocity_prev = velocity;
 
-			accel_prev = accel;
-
-			dt_calc_vel_sum = 0;
 		//}
 
 		if (dt_print_sum >= 500000) { // interval to print on screen
 
-		//	printf("Acc1  %+7.3f %+7.3f %+7.3f \n", -aym, -axm, azm);
+			//printf("Acc1  %+7.3f %+7.3f %+7.3f \n", -aym, -axm, azm);
 
-		//	printf("Acc2  %+7.3f %+7.3f %+7.3f \n", -ayl, -axl, azl);
+			//printf("Acc2  %+7.3f %+7.3f %+7.3f \n", -ayl, -axl, azl);
 
 			printf("Acce  %+7.8f %+7.8f %+7.8f \n", accel.x, accel.y, accel.z);
 
@@ -264,8 +328,42 @@ void *pose_callback(void *threadid)
 			//       printf(" Attitude roll: %f, pitch: %f, yaw: %f \n", attitude.x, attitude.y, attitude.z);
 			dt_print_sum = 0;
 
+
+
 		}
 		
+		/*result_txt
+			<< start_loop_time << ","
+			<< attitude.x << "," << attitude.y << "," << attitude.z << ","
+			<< accel.x << "," << accel.y << "," << accel.z << ","
+			<< velocity.x << "," << velocity.y << "," << velocity.z << ","
+			<< position.x << "," << position.y << "," << position.z << ","
+			<< endl;*/
+
+		result_txt
+					<< start_loop_time << ","
+					<< attitude.x << "," << attitude.y << "," << attitude.z << ","
+					<< accel.x << "," << accel.y << "," << accel.z << ","
+					<< acc_raw1.x << "," << acc_raw1.y << "," << acc_raw1.z << ","
+					<< acc_raw2.x << "," << acc_raw2.y << "," << acc_raw2.z << ","
+					<< velocity.x << "," << velocity.y << "," << velocity.z << ","
+					<< velocity_raw1.x << "," << velocity_raw1.y << "," << velocity_raw1.z << ","
+					<< velocity_raw2.x << "," << velocity_raw2.y << "," << velocity_raw2.z << ","
+					<< position.x << "," << position.y << "," << position.z << ","
+					<< position_raw1.x << "," << position_raw1.y << "," << position_raw1.z << ","
+					<< position_raw2.x << "," << position_raw2.y << "," << position_raw2.z << ","
+					<< endl;
+
+		velocity_prev = velocity;
+		velocity_prev_raw1 = velocity_raw1;
+		velocity_prev_raw2 = velocity_raw2;
+
+		accel_prev = accel;
+		accel_prev_raw1 = acc_raw1;
+		accel_prev_raw2 = acc_raw2;
+
+		dt_calc_vel_sum = 0;
+
 		gettimeofday(&end_sp,NULL);
 		end_loop_time = TIME(end_sp.tv_sec,end_sp.tv_usec);
 
